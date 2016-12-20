@@ -53,9 +53,11 @@
     <Compile Include="SocketFramework\SocketEventArgs.cs" />
     <Compile Include="SocketFramework\SocketServer.cs" />
     <Compile Include="SocketFramework\Writer.cs" />
+    <Compile Include="Test\Test_Client.cs" />
     <Compile Include="Test\Test_Server.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="Images\" />
     <Folder Include="Properties\" />
   </ItemGroup>
   <ItemGroup>

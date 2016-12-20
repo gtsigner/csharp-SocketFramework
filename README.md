@@ -10,38 +10,73 @@
 
 ##Test
 
-
 创建一个服务端
 ```c#
- try
-            {
-                myServer = new SocketServer(ip, prot);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("监听端口失败");
-                return;
-            }
-            lb_IpAddress.Content = "";
-            lb_Prot.Content = prot.ToString();
-            //this.Start_Server();
-            myServer.StartListen();
-            //这些事件应该是第一次进行加载
-            myServer.OnClientConnected += myServer_OnClientConnected;
-            myServer.OnClientDisconnected += myServer_OnClientDisconnected;
-            myServer.OnServerRecevied += new ReceiveEventHandler(myServer_OnReceive);
-            pb_bar.IsIndeterminate = true;
+ class Test_Server
+    {
+        public static void Main(String[] args)
+        {
+            IPAddress addr = IPAddress.Parse("127.0.0.1");
+            SocketServer server = new SocketServer(addr, 6666);
+            server.OnClientConnected += server_OnClientConnected;
+            server.OnClientDisconnected += server_OnClientDisconnected;
+            server.StartListen();
+            Console.Read();
+            server.StopListen();
+        }
+
+        static void server_OnClientDisconnected(ConnectEventType type, SocketEventArgs args)
+        {
+            Console.WriteLine("One Client DisConnected: ip" + args.RemoteAddress);
+        }
+        static void server_OnClientConnected(ConnectEventType type, SocketEventArgs args)
+        {
+            Console.WriteLine("One Client Connected: ip" + args.RemoteAddress);
+        }
+    }
+
 
 ```
 
 创建一个简单的客户端
-```
-         this._socketClient = new SocketClient(this._server_host, this._server_port);
-            this._socketClient.OnConnected += _socketClient_OnConnected;
-            this._socketClient.OnDisConnected += _socketClient_OnDisConnected;
-            this._socketClient.OnReceived += _socketClient_OnReceived;
-            this._socketClient.OnConnectFailed += _socketClient_OnConnectFailed;
-            this._socketClient.Connect();
+```c#
+ 
+  class Test_Client
+    {
+
+        public static void Main(String[] args)
+        {
+            SocketClient client = new SocketClient("127.0.0.1", 6666);
+            client.OnConnected += client_OnConnected;
+            client.OnReceived += client_OnReceived;
+            client.OnConnectFailed += client_OnConnectFailed;
+            client.OnDisConnected += client_OnDisConnected;
+            client.Connect();
+            Console.Read();
+            client.DisConnect();
+        }
+
+        static void client_OnDisConnected(ConnectEventType type, SocketEventArgs args)
+        {
+            //客户端丢失和服务端的链接
+            Console.WriteLine("服务端关闭");
+        }
+
+        static void client_OnConnectFailed(ConnectEventType type, SocketEventArgs args)
+        {
+            Console.WriteLine("链接服务端失败");
+        }
+
+        static void client_OnReceived(object sender, ReceiveEventArgs e)
+        {
+            Console.WriteLine("收到数据包个数:" + e.Packets.Count);
+        }
+
+        static void client_OnConnected(ConnectEventType type, SocketEventArgs args)
+        {
+            Console.WriteLine("链接服务端成功");
+        }
+    }
 
 ```
 
