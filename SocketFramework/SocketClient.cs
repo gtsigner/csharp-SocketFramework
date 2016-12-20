@@ -12,7 +12,11 @@ namespace OeynetSocket.SocketFramework
     {
         private Socket _socket;
         //只拥有客户端进程
-        private ClientThread clientThread;
+        public ClientThread clientThread
+        {
+            get;
+            set;
+        }
 
         //接受数据
         public event ReceiveEventHandler OnReceived = null;
