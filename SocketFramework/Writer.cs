@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Linq;
 
+/// Author: https://github.com/zhaojunlike
 namespace OeynetSocket.SocketFramework
 {
     /// <summary>
@@ -45,8 +46,6 @@ namespace OeynetSocket.SocketFramework
             //flush
             //包体
             //socket.Send(bodyBytes);
-
-
         }
 
         public void WriteBytes(byte[] msg)
@@ -62,12 +61,10 @@ namespace OeynetSocket.SocketFramework
         {
 
         }
-
         public void Close()
         {
             stream.Close();
         }
-
         public void WritePacket(Packet packet)
         {
             byte[] data = new byte[0];
@@ -76,9 +73,11 @@ namespace OeynetSocket.SocketFramework
             byte[] bodyBytes = Encoding.UTF8.GetBytes(packet.Body);
             int totalLength = md5.Length + 4 + bodyBytes.Length;
             byte[] lengthBytes = BitConverter.GetBytes(totalLength);//包长度
-            Console.Write(String.Format("数据包长度：{0},数据:{1}", totalLength, packet.Body));
             data = data.Concat(md5).Concat(lengthBytes).Concat(bodyBytes).ToArray();
-            this.WriteBytes(data);
+
+            //包头包尾分开发发送
+            this.WriteBytes(data.Concat(md5).Concat(lengthBytes).ToArray());
+            this.WriteBytes(bodyBytes);
         }
     }
 }

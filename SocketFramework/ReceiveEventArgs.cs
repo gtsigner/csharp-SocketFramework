@@ -1,10 +1,13 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Net.Sockets;
 using System.Text;
 
+
+/// Author: https://github.com/zhaojunlike
 namespace OeynetSocket.SocketFramework
 {
     /// <summary>
@@ -12,14 +15,19 @@ namespace OeynetSocket.SocketFramework
     /// </summary>
     public class ReceiveEventArgs : EventArgs
     {
-        public Packet PacketData
+        public List<Packet> Packets
         {
             get;
             set;
         }
-        public ReceiveEventArgs(Packet packet)
+        public ReceiveEventArgs(List<Packet> packets)
         {
-            this.PacketData = packet;
+            this.Packets = packets;
+        }
+        public String RemoteAddress
+        {
+            get;
+            set;
         }
     }
 }

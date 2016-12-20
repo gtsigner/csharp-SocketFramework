@@ -6,6 +6,7 @@ using System.Threading;
 using System.Data;
 using System.Collections.Generic;
 
+/// Author: https://github.com/zhaojunlike
 namespace OeynetSocket.SocketFramework
 {
 
@@ -19,7 +20,7 @@ namespace OeynetSocket.SocketFramework
         private int port = 0;
         private Thread listenThread = null;
         //保存客户端信息
-        private List<ClientThread> clients = new List<ClientThread>();
+        private List<ClientThread> Clients = new List<ClientThread>();
 
         //链接上事件
         public event SocketConnectEvent OnClientConnected = null;
@@ -68,20 +69,10 @@ namespace OeynetSocket.SocketFramework
         {
             get
             {
-                return clients.Count;
+                return this.Clients.Count;
             }
         }
 
-        /// <summary>
-        /// 连接到服务器的全部客户
-        /// </summary>
-        public List<ClientThread> Clients
-        {
-            get
-            {
-                return clients;
-            }
-        }
         #endregion
 
         #region 获取本机IP
@@ -142,13 +133,13 @@ namespace OeynetSocket.SocketFramework
         public void StopListen()
         {
             //断开每一个客户端现成链接
-            for (int i = 0; i < clients.Count; i++)
+            for (int i = 0; i < this.Clients.Count; i++)
             {
-                ((ClientThread)clients[i]).Stop();
+                ((ClientThread)this.Clients[i]).Stop();
                 //关闭connect
-                clients[i].ClientSocket.Close();
+                this.Clients[i].ClientSocket.Close();
             }
-            clients.Clear();
+            this.Clients.Clear();
             //关闭监听线程
             if (listenThread != null)
                 listenThread.Abort();
@@ -165,39 +156,49 @@ namespace OeynetSocket.SocketFramework
         /// <param name="msg">要发送的信息</param>
         public void Write(string remoteAddress, Packet packet)
         {
-            for (int i = 0; i < clients.Count; i++)
+            for (int i = 0; i < this.Clients.Count; i++)
             {
-                ClientThread clientThread = (ClientThread)clients[i];
+                ClientThread clientThread = (ClientThread)this.Clients[i];
                 if (clientThread.RemoteAddress.Equals(remoteAddress))
                 {
-                    clientThread.ClientWriter.WritePacket(packet);
-                    break;
+                    try
+                    {
+                        clientThread.WritePacket(packet);
+                    }
+                    catch (Exception ex)
+                    {
+                        this.Clients.Remove(clientThread);
+                        if (this.OnClientDisconnected != null)
+                        {
+                            this.OnClientDisconnected(ConnectEventType.disconnected, new SocketEventArgs(clientThread.ClientSocket));
+                        }
+                        break;
+                    }
                 }
             }
         }
 
         public void WriteAll(Packet packet, String[] noSendRemote)
         {
-            foreach (ClientThread item in clients)
+            foreach (ClientThread item in Clients)
             {
-                item.ClientWriter.WritePacket(packet);
-            }
-        }
-
-        public byte[] ReadData(IPAddress remoteAddress)
-        {
-            for (int i = 0; i < clients.Count; i++)
-            {
-                ClientThread clientThread = (ClientThread)clients[i];
-                if (clientThread.RemoteAddress.Equals(remoteAddress))
+                if (noSendRemote != null)
                 {
+                    foreach (String noItem in noSendRemote)
+                    {
+                        if (noItem == item.RemoteAddress)
+                        {
+                            Console.WriteLine("Skip Send To:" + item.RemoteAddress);
+                            continue;
+                        }
 
-                    return System.Text.Encoding.Default.GetBytes("123");
+                    }
                 }
-
+                Console.WriteLine("Send To:" + item.RemoteAddress);
+                item.WritePacket(packet);
             }
-            return System.Text.Encoding.Default.GetBytes("123");
         }
+
 
         #region
         /// <summary>
@@ -206,7 +207,7 @@ namespace OeynetSocket.SocketFramework
         /// <param name="client"></param>
         internal void RemoveClient(ClientThread client)
         {
-            clients.Remove(client);
+            this.Clients.Remove(client);
         }
 
         //监听
@@ -224,7 +225,7 @@ namespace OeynetSocket.SocketFramework
                 //链接断开
                 clientThread.OnClientDisconnected += clientThread_OnClientDisconnected;
                 clientThread.OnAbortingEvent += clientThread_OnAbortingEvent;
-                clients.Add(clientThread);
+                this.Clients.Add(clientThread);
                 //触发链接事件
                 if (this.OnClientConnected != null)
                 {
@@ -242,12 +243,15 @@ namespace OeynetSocket.SocketFramework
 
         void clientThread_OnClientDisconnected(ConnectEventType type, SocketEventArgs args)
         {
-            Console.WriteLine("disconnect test");
+            if (!this.Clients.Contains(args.ClientThread))
+            {
+                return;
+            }
+            this.RemoveClient(args.ClientThread);
             if (this.OnClientDisconnected != null)
             {
                 this.OnClientDisconnected(type, args);
             }
-
         }
 
         void clientThread_OnServerReceive(object sender, ReceiveEventArgs e)

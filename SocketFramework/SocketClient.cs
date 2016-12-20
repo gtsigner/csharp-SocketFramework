@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
+/// Author: https://github.com/zhaojunlike
 namespace OeynetSocket.SocketFramework
 {
 
@@ -24,7 +25,6 @@ namespace OeynetSocket.SocketFramework
         public event SocketConnectEvent OnConnected = null;
         //链接失败
         public event SocketConnectEvent OnConnectFailed = null;
-
         //服务器断开链接
         public event SocketConnectEvent OnDisConnected = null;
         private String _host;
