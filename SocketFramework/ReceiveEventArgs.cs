@@ -20,9 +20,10 @@ namespace OeynetSocket.SocketFramework
             get;
             set;
         }
-        public ReceiveEventArgs(List<Packet> packets)
+        public ReceiveEventArgs(List<Packet> packets, String remoteAddress)
         {
             this.Packets = packets;
+            this.RemoteAddress = remoteAddress;
         }
         public String RemoteAddress
         {

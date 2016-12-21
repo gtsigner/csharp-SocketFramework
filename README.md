@@ -7,9 +7,7 @@
 
 感谢MSDN,感谢Google上面找到了很多有用的知识点.
 
-
 ##Test
-
 创建一个服务端
 ```c#
  class Test_Server
@@ -40,7 +38,6 @@
 
 创建一个简单的客户端
 ```c#
- 
   class Test_Client
     {
 

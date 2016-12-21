@@ -11,11 +11,6 @@ namespace OeynetSocket.SocketFramework
     /// </summary>
     public class SocketEventArgs : System.EventArgs
     {
-        public Socket socket
-        {
-            get;
-            set;
-        }
         private string address = null;
         public ClientThread ClientThread
         {
@@ -41,15 +36,10 @@ namespace OeynetSocket.SocketFramework
         {
 
         }
-        public SocketEventArgs(Socket socket)
+        public SocketEventArgs(ClientThread child)
         {
-            this.socket = socket;
-            this.address = socket.RemoteEndPoint.ToString();
-        }
-
-        public SocketEventArgs(string ip, int port)
-        {
-            this.address = string.Format("{0}:{1}", ip, port);
+            this.ClientThread = child;
+            this.address = child.RemoteAddress;
         }
     }
 }

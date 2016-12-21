@@ -107,6 +107,12 @@ namespace OeynetSocket.SocketFramework
                             break;
                         }
                     }
+                    else
+                    {
+                        //断开客户端得链接
+                        byte[] newTotalBytes = new byte[0];
+                        break;
+                    }
                 }
 
             }

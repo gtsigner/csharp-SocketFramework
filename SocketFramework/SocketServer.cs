@@ -15,22 +15,24 @@ namespace OeynetSocket.SocketFramework
     /// </summary>
     public class SocketServer
     {
-        private Socket server = null;
-        private string address = null;
-        private int port = 0;
+        private Socket _server = null;
+        private string _address = null;
+        private int _port = 0;
         private Thread listenThread = null;
         //保存客户端信息
-        private List<ClientThread> Clients = new List<ClientThread>();
-
+        private List<ClientThread> _clients = new List<ClientThread>();
         //链接上事件
         public event SocketConnectEvent OnClientConnected = null;
-        //断开链接事件
-        public event SocketConnectEvent OnClientDisconnected = null;
+        //客户端关闭链接事件
+        public event ClientThreadStopEvent OnClientThreadStop = null;
+        //添加一个客户端
+        public event SocketConnectEvent OnClientDisConnected = null;
         //接受到数据事件
         public event ReceiveEventHandler OnServerRecevied = null;
 
+        private Thread daemonThread;
 
-        #region File
+        #region Public
 
         /// <summary>
         /// 监听地址
@@ -39,11 +41,11 @@ namespace OeynetSocket.SocketFramework
         {
             get
             {
-                return address;
+                return this._address;
             }
             set
             {
-                address = value;
+                this._address = value;
             }
         }
 
@@ -54,11 +56,11 @@ namespace OeynetSocket.SocketFramework
         {
             get
             {
-                return port;
+                return this._port;
             }
             set
             {
-                port = value;
+                this._port = value;
             }
         }
 
@@ -69,7 +71,7 @@ namespace OeynetSocket.SocketFramework
         {
             get
             {
-                return this.Clients.Count;
+                return this._clients.Count;
             }
         }
 
@@ -96,12 +98,12 @@ namespace OeynetSocket.SocketFramework
 
         public SocketServer(IPAddress _ip, int _port)
         {
-            address = _ip.ToString();
-            port = _port;
+            this._address = _ip.ToString();
+            this._port = _port;
             try
             {
-                server = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                server.Bind(new IPEndPoint(IPAddress.Parse(address), port));
+                this._server = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                this._server.Bind(new IPEndPoint(IPAddress.Parse(this._address), this._port));
             }
             catch (Exception ex)
             {
@@ -112,7 +114,7 @@ namespace OeynetSocket.SocketFramework
         /// <summary>
         /// 开始监听
         /// </summary>
-        public void StartListen()
+        public void Start()
         {
             try
             {
@@ -120,6 +122,10 @@ namespace OeynetSocket.SocketFramework
                 listenThread.Name = "服务器监听线程";
                 listenThread.Start();
                 Console.WriteLine("Server Start.\n");
+                daemonThread = new Thread(new ThreadStart(this._sendHeartActive));
+                daemonThread.Name = "心跳线程";
+                daemonThread.IsBackground = true;
+                daemonThread.Start();
             }
             catch (Exception ex)
             {
@@ -127,26 +133,33 @@ namespace OeynetSocket.SocketFramework
             }
         }
 
+        private void _sendHeartActive()
+        {
+
+        }
+
         /// <summary>
         /// 停止监听
         /// </summary>
-        public void StopListen()
+        public void Stop()
         {
             //断开每一个客户端现成链接
-            for (int i = 0; i < this.Clients.Count; i++)
+            for (int i = 0; i < this._clients.Count; i++)
             {
-                ((ClientThread)this.Clients[i]).Stop();
-                //关闭connect
-                this.Clients[i].ClientSocket.Close();
+                //关闭会关闭链接和关闭线程
+                ((ClientThread)this._clients[i]).Stop();
             }
-            this.Clients.Clear();
+            this._clients.Clear();
             //关闭监听线程
             if (listenThread != null)
                 listenThread.Abort();
+            //关闭监听线程
+            if (daemonThread != null)
+                daemonThread.Abort();
             //关闭serversocket
-            if (server != null)
-                server.Close();
-            Console.WriteLine("Server Close.\n");
+            if (this._server != null)
+                this._server.Close();
+            Console.WriteLine("Framework log：Server Close.\n");
         }
 
         /// <summary>
@@ -154,49 +167,47 @@ namespace OeynetSocket.SocketFramework
         /// </summary>
         /// <param name="remoteAddress">客户端地址</param>
         /// <param name="msg">要发送的信息</param>
-        public void Write(string remoteAddress, Packet packet)
+        public bool Write(string remoteAddress, Packet packet)
         {
-            for (int i = 0; i < this.Clients.Count; i++)
+            for (int i = 0; i < this._clients.Count; i++)
             {
-                ClientThread clientThread = (ClientThread)this.Clients[i];
+                ClientThread clientThread = (ClientThread)this._clients[i];
                 if (clientThread.RemoteAddress.Equals(remoteAddress))
                 {
-                    try
-                    {
-                        clientThread.WritePacket(packet);
-                    }
-                    catch (Exception ex)
-                    {
-                        this.Clients.Remove(clientThread);
-                        if (this.OnClientDisconnected != null)
-                        {
-                            this.OnClientDisconnected(ConnectEventType.disconnected, new SocketEventArgs(clientThread.ClientSocket));
-                        }
-                        break;
-                    }
+                    //这里
+                    return clientThread.WritePacket(packet);
                 }
             }
+            return false;
         }
 
-        public void WriteAll(Packet packet, String[] noSendRemote)
+        /// <summary>
+        /// 给所有客户端发送数据包
+        /// </summary>
+        /// <param name="packet"></param>
+        /// <param name="noSendRemote"></param>
+        public bool WriteAll(Packet packet, String[] noSendRemote)
         {
-            foreach (ClientThread item in Clients)
+            foreach (ClientThread item in _clients)
             {
+                #region 排除不发送数据得客户端
                 if (noSendRemote != null)
                 {
                     foreach (String noItem in noSendRemote)
                     {
                         if (noItem == item.RemoteAddress)
                         {
-                            Console.WriteLine("Skip Send To:" + item.RemoteAddress);
+                            if (Common.SocketIsDebug) { Console.WriteLine(Common.Log_Prefix + "Skip Send To:" + item.RemoteAddress); }
                             continue;
                         }
-
                     }
                 }
-                Console.WriteLine("Send To:" + item.RemoteAddress);
-                item.WritePacket(packet);
+                #endregion
+                if (Common.SocketIsDebug) { Console.WriteLine(Common.Log_Prefix + "Send To:" + item.RemoteAddress); }
+                //这里如果发生异常，那么会先调用Exception，然后调用Stop，所以会减掉1，所以只要一个发送失败了，我们就跳出循环
+                if (!item.WritePacket(packet)) { return false; }
             }
+            return true;
         }
 
 
@@ -207,53 +218,71 @@ namespace OeynetSocket.SocketFramework
         /// <param name="client"></param>
         internal void RemoveClient(ClientThread client)
         {
-            this.Clients.Remove(client);
+            this._clients.Remove(client);
+            //移除客户端后发送事件
+            if (this.OnClientDisConnected != null)
+            {
+                //sender
+                this.OnClientDisConnected(client, null);
+            }
         }
+
 
         //监听
         private void _listen()
         {
-            server.Listen(20);
+            this._server.Listen(20);
             while (true)
             {
                 //循环accept客户端的请求，然后开启新的现成进行数据交互
-                Socket client = server.Accept();
+                Socket client = this._server.Accept();
                 ClientThread clientThread = new ClientThread(client);
 
                 //客户端收到数据包
                 clientThread.OnReceviedPacket += clientThread_OnServerReceive;
-                //链接断开
-                clientThread.OnClientDisconnected += clientThread_OnClientDisconnected;
-                clientThread.OnAbortingEvent += clientThread_OnAbortingEvent;
-                this.Clients.Add(clientThread);
+                //客户端线程异常事件
+                clientThread.OnThreadException += clientThread_OnThreadException;
+                //客户端线程停止事件
+                clientThread.OnThreadStop += clientThread_OnThreadStop;
+                this._clients.Add(clientThread);
                 //触发链接事件
                 if (this.OnClientConnected != null)
                 {
                     //链接成功
-                    this.OnClientConnected(ConnectEventType.connected, new SocketEventArgs(client));
+                    this.OnClientConnected(clientThread, null);
                 }
                 clientThread.Start();
             }
         }
 
-        void clientThread_OnAbortingEvent(object sender)
+        /// <summary>
+        /// 断开和异常是同时发生
+        /// </summary>
+        /// <param name="sender"></param>
+        void clientThread_OnThreadStop(object sender)
         {
-            //进行删除客户端
+            if (this.OnClientThreadStop != null)
+            {
+                this.OnClientThreadStop(sender);
+            }
+            this.RemoveClient((ClientThread)sender);
         }
 
-        void clientThread_OnClientDisconnected(ConnectEventType type, SocketEventArgs args)
+        /// <summary>
+        /// 客户端异常
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="data"></param>
+        void clientThread_OnThreadException(object sender, ClientThreadEventArgs data)
         {
-            if (!this.Clients.Contains(args.ClientThread))
-            {
-                return;
-            }
-            this.RemoveClient(args.ClientThread);
-            if (this.OnClientDisconnected != null)
-            {
-                this.OnClientDisconnected(type, args);
-            }
+
         }
 
+        /// <summary>
+        /// 客户端线程接受到数据
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         void clientThread_OnServerReceive(object sender, ReceiveEventArgs e)
         {
             if (this.OnServerRecevied != null)

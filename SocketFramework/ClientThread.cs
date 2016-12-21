@@ -13,7 +13,7 @@ namespace OeynetSocket.SocketFramework
     /// </summary>
     public class ClientThread
     {
-        public Socket ClientSocket
+        private Socket ClientSocket
         {
             get;
             set;
@@ -30,11 +30,17 @@ namespace OeynetSocket.SocketFramework
             set;
         }
 
-        public event ReceiveEventHandler OnReceviedPacket = null;
-        //客户端断开链接
-        public event SocketConnectEvent OnClientDisconnected = null;
+        //客户端线程接受数据事件
+        public event ClientThreadReceivedEvent OnReceviedPacket = null;
 
-        public event ClientThreadAbortingEvent OnAbortingEvent = null;
+        //客户端线程关闭事件
+        public event ClientThreadStopEvent OnThreadStop = null;
+
+        //接受异常事件
+        public event ClientThreadExceptionEvent OnThreadException = null;
+
+        //客户端线程停止事件
+        public event ClientThreadAborEvent OnThreadAbort = null;
 
         private bool IsConnect = false;
         private String _remoteAddress;
@@ -49,6 +55,7 @@ namespace OeynetSocket.SocketFramework
                 return this._remoteAddress;
             }
         }
+
         public ClientThread(Socket client)
         {
             this.IsConnect = true;
@@ -73,18 +80,21 @@ namespace OeynetSocket.SocketFramework
         /// </summary>
         public void Stop()
         {
-            this._abortThread();
             //发送事件，封装数据
-            if (this.OnClientDisconnected != null)
+            if (this.OnThreadStop != null)
             {
                 SocketEventArgs args = new SocketEventArgs();
                 args.RemoteAddress = this.RemoteAddress;
                 args.ClientThread = this;
-                this.OnClientDisconnected(ConnectEventType.disconnected, args);
+                //发送事件参数
+                this.OnThreadStop(this);
             }
             this.ClientReader.Close();
             this.ClientWriter.Close();
             this.IsConnect = false;
+            //自动关闭socket链接
+            this.ClientSocket.Close();
+            this._abortThread();
         }
 
         /// <summary>
@@ -93,14 +103,17 @@ namespace OeynetSocket.SocketFramework
         private void _abortThread()
         {
             //关闭线程
-            if (this.OnAbortingEvent != null)
+            if (this.OnThreadAbort != null)
             {
-                this.OnAbortingEvent(null);
+                this.OnThreadAbort(this);
             }
-            Console.WriteLine("Thread One Exit.");
+            Console.WriteLine("Thread Exit .... Remote:" + this.RemoteAddress);
             thread.Abort();
         }
 
+        /// <summary>
+        /// 线程函数
+        /// </summary>
         private void _startThread()
         {
             while (ClientSocket.Connected && this.ClientReader.stream.CanRead)
@@ -111,29 +124,22 @@ namespace OeynetSocket.SocketFramework
                     List<Packet> packets = this.ClientReader.ReadPackSync();
                     if (this.OnReceviedPacket != null)
                     {
-                        ReceiveEventArgs args = new ReceiveEventArgs(packets);
-                        args.RemoteAddress = RemoteAddress;
+                        ReceiveEventArgs args = new ReceiveEventArgs(packets, this.RemoteAddress);
                         this.OnReceviedPacket(ClientSocket, args);
                     }
                 }
                 catch (Exception ex)
                 {
-
                     //如果异常就关闭
-                    Console.WriteLine("ERROR:" + ex.Message);
-                    if (this.OnClientDisconnected != null)
+                    Console.WriteLine("客户端读取数据异常ERROR:" + ex.Message);
+                    if (this.OnThreadException != null)
                     {
-                        SocketEventArgs args = new SocketEventArgs();
-                        args.RemoteAddress = this.RemoteAddress;
-                        args.ClientThread = this;
-                        this.OnClientDisconnected(ConnectEventType.disconnected, args);
+                        ClientThreadEventArgs args = new ClientThreadEventArgs();
+                        args.EventType = ClientThreadEventType.read_error;
+                        this.OnThreadException(this, args);
                     }
-                    //并且让客户端吧自己删除掉
-                    this._abortThread();
-                    this.ClientReader.Close();
-                    this.ClientWriter.Close();
-                    this.ClientSocket.Close();
-                    this.IsConnect = false;
+                    //自动关闭
+                    this.Stop();
                     return;
                 }
             }
@@ -141,30 +147,32 @@ namespace OeynetSocket.SocketFramework
             this.Stop();
         }
 
-        public void WritePacket(Packet packet)
+        /// <summary>
+        /// 发送数据包
+        /// </summary>
+        /// <param name="packet"></param>
+        /// <returns></returns>
+        public bool WritePacket(Packet packet)
         {
             try
             {
                 this.ClientWriter.WritePacket(packet);
+                return true;
             }
             catch (Exception ex)
             {
                 //如果异常就关闭
-                Console.WriteLine("ERROR:" + ex.Message);
-                if (this.OnClientDisconnected != null)
+                if (Common.SocketIsDebug) { Console.WriteLine(Common.Log_Prefix + "写操作异常捕获ERROR:" + ex.Message); }
+                if (this.OnThreadException != null)
                 {
-                    SocketEventArgs args = new SocketEventArgs();
-                    args.RemoteAddress = this.RemoteAddress;
-                    args.ClientThread = this;
-                    this.OnClientDisconnected(ConnectEventType.disconnected, args);
+                    ClientThreadEventArgs args = new ClientThreadEventArgs();
+                    args.EventType = ClientThreadEventType.write_error;
+                    this.OnThreadException(this, args);
                 }
                 //并且让客户端吧自己删除掉
-                this._abortThread();
-                this.ClientReader.Close();
-                this.ClientWriter.Close();
-                this.ClientSocket.Close();
-                this.IsConnect = false;
+                this.Stop();
             }
+            return false;
         }
     }
 }

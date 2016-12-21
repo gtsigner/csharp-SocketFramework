@@ -11,14 +11,14 @@ namespace OeynetSocket.SocketFramework
 
     public class SocketClient
     {
-        private Socket _socket;
+        //服务端socket
+        private Socket _socketClient;
         //只拥有客户端进程
-        public ClientThread clientThread
+        private ClientThread clientThread
         {
             get;
             set;
         }
-
         //接受数据
         public event ReceiveEventHandler OnReceived = null;
         //链接成功
@@ -29,12 +29,18 @@ namespace OeynetSocket.SocketFramework
         public event SocketConnectEvent OnDisConnected = null;
         private String _host;
         private int _port;
+        public bool IsConnection
+        {
+            get;
+            set;
+        }
+
         public SocketClient(String host, int port)
         {
             this._host = host;
             this._port = port;
             //TCP
-            this._socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            this._socketClient = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         }
 
         //阻塞进行链接
@@ -42,14 +48,14 @@ namespace OeynetSocket.SocketFramework
         {
             try
             {
-                this._socket.Connect(new IPEndPoint(IPAddress.Parse(this._host), this._port));
+                this._socketClient.Connect(new IPEndPoint(IPAddress.Parse(this._host), this._port));
             }
             catch (Exception ex)
             {
                 if (this.OnConnectFailed != null)
                 {
                     //链接失败
-                    this.OnConnectFailed(ConnectEventType.connect_failed, null);
+                    this.OnConnectFailed(null, null);
                     return;
                 }
                 else
@@ -57,20 +63,33 @@ namespace OeynetSocket.SocketFramework
                     throw ex;
                 }
             }
-            if (!this._socket.Connected)
+            if (!this._socketClient.Connected)
             {
                 throw new Exception("error");
             }
-
-            this.clientThread = new ClientThread(this._socket);
+            this.clientThread = new ClientThread(this._socketClient);
             //链接成功触发事件
             if (this.OnConnected != null)
             {
-                this.OnConnected(ConnectEventType.connected, null);
+                this.OnConnected(clientThread, null);
             }
-            this.clientThread.OnClientDisconnected += clientThread_OnClientDisconnected;
+            this.clientThread.OnThreadStop += clientThread_OnThreadStop;
             this.clientThread.OnReceviedPacket += clientThread_OnReceviedPacket;
             this.clientThread.Start();
+            this.IsConnection = true;
+        }
+
+        /// <summary>
+        /// 客户端线程关闭
+        /// </summary>
+        /// <param name="sender"></param>
+        void clientThread_OnThreadStop(object sender)
+        {
+            this.IsConnection = false;
+            if (this.OnDisConnected != null)
+            {
+                this.OnDisConnected(this.clientThread, null);
+            }
         }
 
         /// <summary>
@@ -87,27 +106,25 @@ namespace OeynetSocket.SocketFramework
         }
 
         /// <summary>
-        /// 传递事件
+        /// 发送数据包到服务端
         /// </summary>
-        /// <param name="type"></param>
-        /// <param name="args"></param>
-        void clientThread_OnClientDisconnected(ConnectEventType type, SocketEventArgs args)
+        /// <param name="packet"></param>
+        /// <returns></returns>
+        public bool WritePacket(Packet packet)
         {
-            if (this.OnDisConnected != null)
-            {
-                this.OnDisConnected(type, args);
-            }
+            return this.clientThread.WritePacket(packet);
         }
 
         //释放链接
-        public void DisConnect()
+        public void Stop()
         {
-            //关闭线程
+            //断开客户端线程
             this.clientThread.Stop();
-            //自己要关闭数据流
-            this._socket.Shutdown(SocketShutdown.Both);
-            this._socket.Close();
+            //断开socket
+            if (this._socketClient.Connected)
+            {
+                this._socketClient.Close();
+            }
         }
-
     }
 }

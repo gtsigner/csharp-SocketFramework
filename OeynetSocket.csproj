@@ -44,6 +44,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="SocketFramework\ClientThread.cs" />
+    <Compile Include="SocketFramework\ClientThreadEventArgs.cs" />
     <Compile Include="SocketFramework\Common.cs" />
     <Compile Include="SocketFramework\Packet.cs" />
     <Compile Include="SocketFramework\PacketHelper.cs" />
@@ -61,6 +62,7 @@
     <Folder Include="Properties\" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="packages.config" />
     <None Include="README.md" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

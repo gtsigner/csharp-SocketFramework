@@ -11,22 +11,32 @@ namespace OeynetSocket.Test
     {
         public static void Main(String[] args)
         {
-            IPAddress addr = IPAddress.Parse("127.0.0.1");
+            Common.SocketIsDebug = true;
+            IPAddress addr = IPAddress.Parse("10.1.56.117");
             SocketServer server = new SocketServer(addr, 6666);
             server.OnClientConnected += server_OnClientConnected;
-            server.OnClientDisconnected += server_OnClientDisconnected;
-            server.StartListen();
+            server.OnClientThreadStop += server_OnClientThreadStop;
+            server.OnClientDisConnected += server_OnClientDisConnected;
+            server.Start();
             Console.Read();
-            server.StopListen();
+            server.Stop();
         }
 
-        static void server_OnClientDisconnected(ConnectEventType type, SocketEventArgs args)
+        static void server_OnClientDisConnected(object sender, SocketEventArgs data)
         {
-            Console.WriteLine("One Client DisConnected: ip" + args.RemoteAddress);
+            Console.WriteLine("One Client DisConnected: ip" + ((ClientThread)sender).RemoteAddress);
+
         }
-        static void server_OnClientConnected(ConnectEventType type, SocketEventArgs args)
+
+        static void server_OnClientConnected(object sender, SocketEventArgs data)
         {
-            Console.WriteLine("One Client Connected: ip" + args.RemoteAddress);
+            Console.WriteLine("One Client Connected: ip" + ((ClientThread)sender).RemoteAddress);
         }
+
+        static void server_OnClientThreadStop(object sender)
+        {
+            Console.WriteLine("One ClientThread Stop.");
+        }
+
     }
 }
