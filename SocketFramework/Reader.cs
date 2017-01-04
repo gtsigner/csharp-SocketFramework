@@ -45,8 +45,9 @@ namespace OeynetSocket.SocketFramework
             this.nowPackets.Clear();
             Packet packet = new Packet();
             //开始循环去读取数据到缓冲区
-            byte[] buffer = new byte[512];
-            //key 验证客户端密码 4位
+            byte[] buffer = new byte[1024];
+            //key 验证客户端密码 32位
+            int md5KeyLength = 32;
             //header length  4位
             int recSize = this.stream.Read(buffer, 0, buffer.Length);
             if (recSize != 0)
@@ -56,42 +57,40 @@ namespace OeynetSocket.SocketFramework
                 //除去没用的一段
                 Array.Copy(buffer, 0, realBuffer, 0, recSize);
                 totalBytes = totalBytes.Concat(realBuffer).ToArray();//C#神器，byte[]会自动延长
-                //如果当前包中有包头的数据得时候
-                if (totalBytes.Length <= 8)
+                //如果当前包中有整个包头的数据得时候
+                if (totalBytes.Length <= (md5KeyLength + 4))
                 {
                     //还不够一个
                     return nowPackets;
                 }
-
-                while (totalBytes.Length > 8)
+                //循环去解析数据头
+                while (totalBytes.Length > (md5KeyLength + 4))
                 {
                     Packet nowPacket = new Packet();
-                    //TODO 把 int型的key换成MD5
-                    int keyLength = 4;
-                    byte[] md5Key = new byte[4];
-                    //缓存中的4位int copy出来
-                    Array.Copy(totalBytes, 0, md5Key, 0, 4);
+                    byte[] md5Key = new byte[md5KeyLength];
+                    //缓存中的md5 copy出来
+                    Array.Copy(totalBytes, 0, md5Key, 0, md5KeyLength);
                     //int
-                    int serverKey = BitConverter.ToInt32(md5Key, 0);
+                    String serverKey = Encoding.UTF8.GetString(md5Key);
                     nowPacket.Key = serverKey;
-                    if (serverKey.ToString() == "19960615")//是我的包,我的密码，哈哈哈，开始循环读
+                    if (serverKey.ToString() == "cba6c83625b358bf562e624fc903c244")//是我的包,我的密码，哈哈哈，开始循环读
                     {
                         //接下是整个数据包的大小
                         byte[] packSizeBuffer = new byte[4];//先读整个包的大小(不包含MD5)
-                        //取出数据包中的包含数据长度的
-                        Array.Copy(totalBytes, 4, packSizeBuffer, 0, 4);
+                        //取出数据包中的包含数据长度的,偏移32长度
+                        Array.Copy(totalBytes, md5KeyLength, packSizeBuffer, 0, 4);
                         //取出整个包的大小
                         int packSize = BitConverter.ToInt32(packSizeBuffer, 0);
                         //当前数据缓存中长度
-                        int currentSize = totalBytes.Length - keyLength - packSizeBuffer.Length;//标记整个包有多少，默认减掉包头Md5+PackSize
+                        int currentSize = totalBytes.Length - md5KeyLength - packSizeBuffer.Length;//标记整个包有多少，默认减掉包头Md5+PackSize
                         //判断如果是否有一个完整的数据包
                         if (totalBytes.Length >= packSize)
                         {
                             //包体的长度
-                            int bodyShouldSize = packSize - 8;
+                            int bodyShouldSize = packSize - md5KeyLength - 4;
                             byte[] nowPacketBodyBytes = new byte[bodyShouldSize];
                             //读出包体
-                            Array.Copy(totalBytes, 8, nowPacketBodyBytes, 0, bodyShouldSize);
+                            Array.Copy(totalBytes, md5KeyLength + 4, nowPacketBodyBytes, 0, bodyShouldSize);
                             nowPacket.Body = Encoding.UTF8.GetString(nowPacketBodyBytes);
                             //删除掉已经读了得数据
                             byte[] newTotalBytes = new byte[totalBytes.Length - packSize];
