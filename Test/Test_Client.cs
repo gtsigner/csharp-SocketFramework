@@ -9,9 +9,9 @@ namespace OeynetSocket.Test
     class Test_Client
     {
 
-        public static void test(String[] args)
+        public static void Main(String[] args)
         {
-            SocketClient client = new SocketClient("127.0.0.1", 6666);
+            SocketClient client = new SocketClient("192.168.32.1", 8888);
             client.OnConnected += client_OnConnected;
             client.OnReceived += client_OnReceived;
             client.OnConnectFailed += client_OnConnectFailed;
@@ -37,9 +37,12 @@ namespace OeynetSocket.Test
         }
 
 
-        static void client_OnReceived(object sender, ReceiveEventArgs e)
+        static void client_OnReceived(object sender, ReceiveEventArgs data)
         {
-            Console.WriteLine("收到数据包个数:" + e.Packets.Count);
+            for (var i = 0; i < data.Packets.Count; i++)
+            {
+                Console.WriteLine(data.Packets[i].Body);
+            }
         }
     }
 }

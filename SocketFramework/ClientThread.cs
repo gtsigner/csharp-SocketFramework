@@ -143,8 +143,6 @@ namespace OeynetSocket.SocketFramework
                     return;
                 }
             }
-            //如果跳出来了也要将链接关闭
-            this.Stop();
         }
 
         /// <summary>

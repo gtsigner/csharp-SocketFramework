@@ -89,7 +89,6 @@ namespace OeynetSocket.SocketFramework
                         {
                             //包体的长度
                             int bodyShouldSize = packSize - 8;
-                            //Console.Write(String.Format("TotalBytes:{0},当前数据包：{1} \n", totalBytes.Length, packSize));
                             byte[] nowPacketBodyBytes = new byte[bodyShouldSize];
                             //读出包体
                             Array.Copy(totalBytes, 8, nowPacketBodyBytes, 0, bodyShouldSize);
@@ -97,10 +96,8 @@ namespace OeynetSocket.SocketFramework
                             //删除掉已经读了得数据
                             byte[] newTotalBytes = new byte[totalBytes.Length - packSize];
                             Array.Copy(totalBytes, packSize, newTotalBytes, 0, totalBytes.Length - packSize);
-                            //Array.Clear(totalBytes, 0, packSize); //此方法无法删除bytes数组中得数据
                             totalBytes = newTotalBytes;
                             this.nowPackets.Add(nowPacket);
-                            //Console.WriteLine(String.Format("移除数据包后：{0},Packts数量:{1}", totalBytes.Length, nowPackets.Count));
                         }
                         else
                         {
@@ -122,48 +119,5 @@ namespace OeynetSocket.SocketFramework
             }
             return nowPackets;
         }
-
-        private void ParsePacket()
-        {
-            Packet nowPacket = new Packet();
-            //TODO 把 int型的key换成MD5
-            int keyLength = 4;
-            byte[] md5Key = new byte[4];
-            //缓存中的4位int copy出来
-            Array.Copy(totalBytes, 0, md5Key, 0, 4);
-            //int
-            int serverKey = BitConverter.ToInt32(md5Key, 0);
-            nowPacket.Key = serverKey;
-            if (serverKey.ToString() == "19960615")//是我的包,我的密码，哈哈哈，开始循环读
-            {
-                //接下是整个数据包的大小
-                byte[] packSizeBuffer = new byte[4];//先读整个包的大小(不包含MD5)
-                //取出数据包中的包含数据长度的
-                Array.Copy(totalBytes, 4, packSizeBuffer, 0, 4);
-                //取出整个包的大小
-                int packSize = BitConverter.ToInt32(packSizeBuffer, 0);
-                //当前数据缓存中长度
-                int currentSize = totalBytes.Length - keyLength - packSizeBuffer.Length;//标记整个包有多少，默认减掉包头Md5+PackSize
-                //判断如果是否有一个完整的数据包
-                if (totalBytes.Length >= packSize)
-                {
-                    //包体的长度
-                    int bodyShouldSize = packSize - 8;
-                    Console.Write(String.Format("TotalBytes:{0},当前数据包：{1} \n", totalBytes.Length, packSize));
-                    byte[] nowPacketBodyBytes = new byte[bodyShouldSize];
-                    //读出包体
-                    Array.Copy(totalBytes, 8, nowPacketBodyBytes, 0, bodyShouldSize);
-                    nowPacket.Body = Encoding.UTF8.GetString(nowPacketBodyBytes);
-                    //删除掉已经读了得数据
-                    Array.Clear(totalBytes, 0, packSize);
-                    this.nowPackets.Add(nowPacket);
-                }
-                else
-                {
-                    return;
-                }
-            }
-        }
-
     }
 }

@@ -237,13 +237,11 @@ namespace OeynetSocket.SocketFramework
                 //循环accept客户端的请求，然后开启新的现成进行数据交互
                 Socket client = this._server.Accept();
                 ClientThread clientThread = new ClientThread(client);
-
-                //客户端收到数据包
-                clientThread.OnReceviedPacket += clientThread_OnServerReceive;
                 //客户端线程异常事件
                 clientThread.OnThreadException += clientThread_OnThreadException;
                 //客户端线程停止事件
                 clientThread.OnThreadStop += clientThread_OnThreadStop;
+                clientThread.OnReceviedPacket += clientThread_OnReceviedPacket;
                 this._clients.Add(clientThread);
                 //触发链接事件
                 if (this.OnClientConnected != null)
@@ -252,6 +250,18 @@ namespace OeynetSocket.SocketFramework
                     this.OnClientConnected(clientThread, null);
                 }
                 clientThread.Start();
+            }
+        }
+        /// <summary>
+        /// 客户端线程接受到数据
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        void clientThread_OnReceviedPacket(object sender, ReceiveEventArgs data)
+        {
+            if (this.OnServerRecevied != null)
+            {
+                this.OnServerRecevied(sender, data);
             }
         }
 
@@ -277,20 +287,6 @@ namespace OeynetSocket.SocketFramework
         {
 
         }
-
-        /// <summary>
-        /// 客户端线程接受到数据
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        void clientThread_OnServerReceive(object sender, ReceiveEventArgs e)
-        {
-            if (this.OnServerRecevied != null)
-            {
-                this.OnServerRecevied(sender, e);
-            }
-        }
-
         #endregion
     }
 

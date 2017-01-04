@@ -65,7 +65,7 @@ namespace OeynetSocket.SocketFramework
         {
             stream.Close();
         }
-        public void WritePacket(Packet packet)
+        public void WritePacket2(Packet packet)
         {
             byte[] data = new byte[0];
             //把自己的密码加入
@@ -73,10 +73,24 @@ namespace OeynetSocket.SocketFramework
             byte[] bodyBytes = Encoding.UTF8.GetBytes(packet.Body);
             int totalLength = md5.Length + 4 + bodyBytes.Length;
             byte[] lengthBytes = BitConverter.GetBytes(totalLength);//包长度
+            //我发了2次数据包就ok了？
             data = data.Concat(md5).Concat(lengthBytes).Concat(bodyBytes).ToArray();
+            this.WriteBytes(data);
+        }
 
-            //包头包尾分开发发送
-            this.WriteBytes(data.Concat(md5).Concat(lengthBytes).ToArray());
+        public void WritePacket(Packet packet)
+        {
+            //把自己的密码加入
+            byte[] md5 = BitConverter.GetBytes(packet.Key);
+            //包体
+            byte[] bodyBytes = Encoding.UTF8.GetBytes(packet.Body);
+            //总长度
+            int totalLength = md5.Length + 4 + bodyBytes.Length;
+            //包含长度的数据包
+            byte[] lengthBytes = BitConverter.GetBytes(totalLength);
+            //发送包头
+            this.WriteBytes(md5.Concat(lengthBytes).ToArray());
+            //发送包体
             this.WriteBytes(bodyBytes);
         }
     }
